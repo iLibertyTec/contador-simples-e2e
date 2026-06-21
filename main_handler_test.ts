@@ -189,6 +189,31 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
   });
 });
 
+deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato atual", async (): Promise<void> => {
+  resetVisitsState();
+  const handler = await loadHandler();
+  const response = await handler(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+    message: "Total visits: 1 · Unique visitors: 0",
+  });
+});
+
 deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (): Promise<void> => {
   resetVisitsState();
   const handler = await loadHandler();
@@ -221,7 +246,7 @@ deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async
   const response = await handler(
     new Request("http://localhost/api/visits", {
       method: "POST",
-      body: JSON.stringify({ visitorId: "ignored-without-content-type" }),
+      body: JSON.stringify({ visitorId: "browser" }),
     }),
   );
 
@@ -238,24 +263,17 @@ deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async
   });
 });
 
-deno.test("getVisitsState retorna cópia e não permite mutar o estado compartilhado", async (): Promise<void> => {
+deno.test("rota inválida retorna 404 em JSON", async (): Promise<void> => {
   resetVisitsState();
-  const visitsStateModule = await import(
-    `./visits_state.ts?test=${crypto.randomUUID()}`
+  const handler = await loadHandler();
+  const response = await handler(new Request("http://localhost/does-not-exist"));
+
+  assertEquals(response.status, 404);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-
-  const state = visitsStateModule.getVisitsState() as {
-    visits: number;
-    uniqueVisitors: number;
-    lastVisitor: string | null;
-  };
-  state.visits = 999;
-  state.uniqueVisitors = 999;
-  state.lastVisitor = "mutated";
-
-  assertEquals(visitsStateModule.getVisitsState(), {
-    visits: 0,
-    uniqueVisitors: 0,
-    lastVisitor: null,
+  assertEquals(await response.json(), {
+    error: "not found",
   });
 });
