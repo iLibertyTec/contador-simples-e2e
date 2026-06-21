@@ -1,13 +1,10 @@
 import {
   getSharedVisitsService,
   readOptionalVisitorId,
-  type VisitsService,
 } from "../../visits_state.ts";
 
-const visitsService: VisitsService = getSharedVisitsService();
-
 export function GET(_req: Request): Response {
-  const state = visitsService.getState();
+  const state = getSharedVisitsService().getState();
 
   return Response.json({
     visits: state.visits,
@@ -17,18 +14,18 @@ export function GET(_req: Request): Response {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const { visitorId, invalidJson } = await readOptionalVisitorId(req);
+  const parsedBody = await readOptionalVisitorId(req);
 
-  if (invalidJson) {
+  if (!parsedBody.valid) {
     return Response.json(
       {
-        error: "invalid json body",
+        error: parsedBody.error,
       },
       { status: 400 },
     );
   }
 
-  const result = visitsService.registerVisit(visitorId);
+  const result = getSharedVisitsService().registerVisit(parsedBody.visitorId);
 
   return Response.json({
     visits: result.visits,

@@ -15,10 +15,15 @@ export type VisitsService = {
   registerVisit(visitorId?: string): VisitRecordResult;
 };
 
-export type OptionalVisitorIdResult = {
-  visitorId?: string;
-  invalidJson: boolean;
-};
+export type OptionalVisitorIdResult =
+  | {
+    valid: true;
+    visitorId?: string;
+  }
+  | {
+    valid: false;
+    error: "invalid json body" | "unsupported media type";
+  };
 
 function cloneState(state: VisitsState): VisitsState {
   return {
@@ -28,19 +33,31 @@ function cloneState(state: VisitsState): VisitsState {
   };
 }
 
+function isJsonMediaType(contentType: string | null): boolean {
+  if (contentType === null) {
+    return false;
+  }
+
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+
+  return mediaType === "application/json" || mediaType.endsWith("+json");
+}
+
 export async function readOptionalVisitorId(
   req: Request,
 ): Promise<OptionalVisitorIdResult> {
   const contentType = req.headers.get("content-type");
-
-  if (!contentType?.includes("json")) {
-    return { invalidJson: false };
-  }
-
   const bodyText = await req.text();
 
   if (bodyText.trim() === "") {
-    return { invalidJson: false };
+    return { valid: true };
+  }
+
+  if (!isJsonMediaType(contentType)) {
+    return {
+      valid: false,
+      error: "unsupported media type",
+    };
   }
 
   let body: unknown;
@@ -48,21 +65,45 @@ export async function readOptionalVisitorId(
   try {
     body = JSON.parse(bodyText);
   } catch {
-    return { invalidJson: true };
-  }
-
-  if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return { invalidJson: true };
-  }
-
-  if ("visitorId" in body && typeof body.visitorId === "string") {
     return {
-      visitorId: body.visitorId,
-      invalidJson: false,
+      valid: false,
+      error: "invalid json body",
     };
   }
 
-  return { invalidJson: false };
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return {
+      valid: false,
+      error: "invalid json body",
+    };
+  }
+
+  const entries = Object.entries(body);
+
+  for (const [key, value] of entries) {
+    if (key !== "visitorId") {
+      return {
+        valid: false,
+        error: "invalid json body",
+      };
+    }
+
+    if (typeof value !== "string") {
+      return {
+        valid: false,
+        error: "invalid json body",
+      };
+    }
+  }
+
+  if ("visitorId" in body) {
+    return {
+      valid: true,
+      visitorId: body.visitorId,
+    };
+  }
+
+  return { valid: true };
 }
 
 export function createVisitsService(counter: VisitCounter): VisitsService {
