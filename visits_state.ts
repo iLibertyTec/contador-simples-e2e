@@ -40,24 +40,36 @@ function isJsonMediaType(contentType: string | null): boolean {
 
   const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 
-  return mediaType === "application/json" || mediaType.endsWith("+json");
+  return mediaType === "application/json";
 }
 
 export async function readOptionalVisitorId(
   req: Request,
 ): Promise<OptionalVisitorIdResult> {
   const contentType = req.headers.get("content-type");
-  const bodyText = await req.text();
+  const contentLength = req.headers.get("content-length");
 
-  if (bodyText.trim() === "") {
+  if (contentLength === "0") {
     return { valid: true };
   }
 
   if (!isJsonMediaType(contentType)) {
+    const bodyText = await req.text();
+
+    if (bodyText === "") {
+      return { valid: true };
+    }
+
     return {
       valid: false,
       error: "unsupported media type",
     };
+  }
+
+  const bodyText = await req.text();
+
+  if (bodyText.trim() === "") {
+    return { valid: true };
   }
 
   let body: unknown;

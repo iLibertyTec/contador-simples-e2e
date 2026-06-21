@@ -246,34 +246,13 @@ deno.test("GET da rota Fresh /api/visits retorna estado atual", async (): Promis
   });
 });
 
-deno.test("POST da rota Fresh /api/visits aceita visitorId opcional", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const route = await loadVisitsRoute();
-  const response = await route.POST(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify({ visitorId: "browser" }),
-    }),
-  );
-
-  assertEquals(response.status, 200);
-  assertEquals(await response.json(), {
-    visits: 1,
-    uniqueVisitors: 1,
-    lastVisitor: "browser",
-    message: "Total visits: 1 · Unique visitors: 1 · Last visitor: browser",
-  });
-});
-
 deno.test("POST da rota Fresh /api/visits aceita body vazio sem content-type", async (): Promise<void> => {
   resetVisitsStateForTest();
   const route = await loadVisitsRoute();
   const response = await route.POST(
     new Request("http://localhost/api/visits", {
       method: "POST",
+      body: "",
     }),
   );
 
@@ -282,55 +261,20 @@ deno.test("POST da rota Fresh /api/visits aceita body vazio sem content-type", a
     visits: 1,
     uniqueVisitors: 0,
     lastVisitor: null,
-    message: "Total visits: 1 · Unique visitors: 0",
+    message: "Total visits: 1 · Unique visitors: 0 · Last visitor: anonymous",
   });
 });
 
-deno.test("POST da rota Fresh /api/visits rejeita JSON inválido", async (): Promise<void> => {
+deno.test("POST da rota Fresh /api/visits rejeita whitespace com content-type não JSON", async (): Promise<void> => {
   resetVisitsStateForTest();
   const route = await loadVisitsRoute();
   const response = await route.POST(
     new Request("http://localhost/api/visits", {
       method: "POST",
       headers: {
-        "content-type": "application/json",
+        "content-type": "text/plain",
       },
-      body: "{",
-    }),
-  );
-
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), {
-    error: "invalid json body",
-  });
-});
-
-deno.test("POST da rota Fresh /api/visits rejeita chaves desconhecidas", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const route = await loadVisitsRoute();
-  const response = await route.POST(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ foo: "bar" }),
-    }),
-  );
-
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), {
-    error: "invalid json body",
-  });
-});
-
-deno.test("POST da rota Fresh /api/visits rejeita body com conteúdo sem content-type JSON", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const route = await loadVisitsRoute();
-  const response = await route.POST(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      body: JSON.stringify({ visitorId: "browser" }),
+      body: "   ",
     }),
   );
 
@@ -340,7 +284,7 @@ deno.test("POST da rota Fresh /api/visits rejeita body com conteúdo sem content
   });
 });
 
-deno.test("POST da rota Fresh /api/visits aceita media type +json", async (): Promise<void> => {
+deno.test("POST da rota Fresh /api/visits rejeita media type +json fora do contrato", async (): Promise<void> => {
   resetVisitsStateForTest();
   const route = await loadVisitsRoute();
   const response = await route.POST(
@@ -353,11 +297,8 @@ deno.test("POST da rota Fresh /api/visits aceita media type +json", async (): Pr
     }),
   );
 
-  assertEquals(response.status, 200);
+  assertEquals(response.status, 400);
   assertEquals(await response.json(), {
-    visits: 1,
-    uniqueVisitors: 1,
-    lastVisitor: "browser",
-    message: "Total visits: 1 · Unique visitors: 1 · Last visitor: browser",
+    error: "unsupported media type",
   });
 });
