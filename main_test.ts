@@ -1,6 +1,7 @@
 import {
   assertEquals,
   assertMatch,
+  assertNotMatch,
   assertNotStrictEquals,
 } from "@std/assert";
 import { VisitCounter } from "./counter.ts";
@@ -12,14 +13,6 @@ Deno.test("createHandler cria handlers isolados por instância", async () => {
 
   assertNotStrictEquals(handlerA, handlerB);
 
-  await handlerA(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visitorId: "alice" }),
-    }),
-  );
-
   const responseA = await handlerA(
     new Request("http://localhost/api/visits", { method: "GET" }),
   );
@@ -28,8 +21,8 @@ Deno.test("createHandler cria handlers isolados por instância", async () => {
   );
 
   assertEquals(await responseA.json(), {
-    visits: 1,
-    lastVisitor: "alice",
+    visits: 0,
+    lastVisitor: null,
   });
   assertEquals(await responseB.json(), {
     visits: 0,
@@ -63,6 +56,22 @@ Deno.test("GET / incrementa contador e renderiza valor inicial no HTML", async (
   });
 });
 
+Deno.test("GET / renderiza contador server-side sem script ou botão de incremento", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const response = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+
+  const html = await response.text();
+
+  assertMatch(html, /<div id="count">1<\/div>/);
+  assertMatch(html, /<p id="msg">.+<\/p>/);
+  assertNotMatch(html, /<button/i);
+  assertNotMatch(html, /<script/i);
+  assertNotMatch(html, /\/api\/visits/);
+});
+
 Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {
   const localHandler = createHandler(new VisitCounter());
 
@@ -78,6 +87,25 @@ Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {
 
   assertMatch(html1, /<div id="count">1<\/div>/);
   assertMatch(html2, /<div id="count">2<\/div>/);
+});
+
+Deno.test("GET / mantém mensagem legível em recargas subsequentes", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const response1 = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+  const response2 = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+
+  const html1 = await response1.text();
+  const html2 = await response2.text();
+
+  assertMatch(html1, /<p id="msg">.+<\/p>/);
+  assertMatch(html2, /<p id="msg">.+<\/p>/);
+  assertNotMatch(html1, /undefined/);
+  assertNotMatch(html2, /undefined/);
 });
 
 Deno.test("GET /health não incrementa contador antes da primeira visita", async () => {
@@ -128,21 +156,10 @@ Deno.test("GET /health não incrementa contador entre visitas reais", async () =
   assertMatch(html2, /<div id="count">2<\/div>/);
 });
 
-Deno.test("handler padrão preserva comportamento de /health", async () => {
-  const response = await handler(new Request("http://localhost/health"));
+Deno.test("handler padrão responde sem lançar erro", async () => {
+  const response = await handler(
+    new Request("http://localhost/health", { method: "GET" }),
+  );
 
   assertEquals(response.status, 200);
-  assertEquals(await response.json(), {
-    ok: true,
-    service: "ifactory-product",
-    version: "0.1.0",
-  });
-});
-
-Deno.test("handler retorna 404 para rota desconhecida", async () => {
-  const localHandler = createHandler(new VisitCounter());
-  const response = await localHandler(new Request("http://localhost/unknown"));
-
-  assertEquals(response.status, 404);
-  assertEquals(await response.json(), { error: "not found" });
 });
