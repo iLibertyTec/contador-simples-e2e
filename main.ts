@@ -6,10 +6,14 @@ export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return Response.json({
+    return new Response(JSON.stringify({
       ok: true,
-      service: "ifactory-product",
-      version: "0.1.0",
+      service: "contador",
+    }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
     });
   }
 
