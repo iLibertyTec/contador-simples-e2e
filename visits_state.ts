@@ -15,6 +15,11 @@ export type VisitsService = {
   registerVisit(visitorId?: string): VisitRecordResult;
 };
 
+export type OptionalVisitorIdResult = {
+  visitorId?: string;
+  invalidJson: boolean;
+};
+
 function cloneState(state: VisitsState): VisitsState {
   return {
     visits: state.visits,
@@ -23,14 +28,22 @@ function cloneState(state: VisitsState): VisitsState {
   };
 }
 
-export async function readOptionalVisitorId(req: Request): Promise<string | undefined> {
+export async function readOptionalVisitorId(
+  req: Request,
+): Promise<OptionalVisitorIdResult> {
   const contentType = req.headers.get("content-type");
 
   if (!contentType?.includes("json")) {
-    return undefined;
+    return { invalidJson: false };
   }
 
-  const body: unknown = await req.json().catch((): {} => ({}));
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    return { invalidJson: true };
+  }
 
   if (
     typeof body === "object" &&
@@ -38,10 +51,13 @@ export async function readOptionalVisitorId(req: Request): Promise<string | unde
     "visitorId" in body &&
     typeof body.visitorId === "string"
   ) {
-    return body.visitorId;
+    return {
+      visitorId: body.visitorId,
+      invalidJson: false,
+    };
   }
 
-  return undefined;
+  return { invalidJson: false };
 }
 
 export function createVisitsService(counter: VisitCounter): VisitsService {

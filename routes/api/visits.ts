@@ -11,6 +11,16 @@ export function GET(_req: Request): Response {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const visitorId = await readOptionalVisitorId(req);
+  const { visitorId, invalidJson } = await readOptionalVisitorId(req);
+
+  if (invalidJson) {
+    return Response.json(
+      {
+        error: "invalid json body",
+      },
+      { status: 400 },
+    );
+  }
+
   return Response.json(visitsService.registerVisit(visitorId));
 }
