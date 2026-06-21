@@ -32,6 +32,8 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
 
     if (url.pathname === "/" && req.method === "GET") {
       const state = counter.recordVisit();
+      const message = formatCounterMessage(state) ||
+        `Total de visitas: ${state.visits}`;
       const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
@@ -47,9 +49,9 @@ p{color:var(--mut);font-size:.9rem;margin-bottom:20px}
 </style></head>
 <body><div class="card">
 <h1>Visit Analytics</h1>
-<p>Evolved by the iFactory autonomous team.</p>
+<p>Atualize a página para registrar uma nova visita no servidor.</p>
 <div id="count">${state.visits}</div>
-<p id="msg">${formatCounterMessage(state)}</p>
+<p id="msg">${message}</p>
 <div class="badge">iFactory Product · Deno Deploy</div>
 </div></body></html>`;
       return new Response(html, {

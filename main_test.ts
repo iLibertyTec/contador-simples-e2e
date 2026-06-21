@@ -74,7 +74,11 @@ Deno.test("GET / renderiza contador server-side sem script ou botão de incremen
   const html = await response.text();
 
   assertMatch(html, /<div id="count">1<\/div>/);
-  assertMatch(html, /<p id="msg">/);
+  assertMatch(html, /<p id="msg">.+<\/p>/);
+  assertMatch(
+    html,
+    /Atualize a página para registrar uma nova visita no servidor\./,
+  );
   assertNotMatch(html, /<button/i);
   assertNotMatch(html, /<script/i);
   assertNotMatch(html, /\/api\/visits/);
@@ -95,6 +99,20 @@ Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {
 
   assertMatch(html1, /<div id="count">1<\/div>/);
   assertMatch(html2, /<div id="count">2<\/div>/);
+});
+
+Deno.test("GET / renderiza mensagem visível de contador com fallback", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const response = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+
+  const html = await response.text();
+
+  assertMatch(html, /<p id="msg">.+<\/p>/);
+  assertNotMatch(html, /<p id="msg"><\/p>/);
+  assertNotMatch(html, /<p id="msg">undefined<\/p>/);
 });
 
 Deno.test("GET /health não incrementa contador antes da primeira visita", async () => {
