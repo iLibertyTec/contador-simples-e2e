@@ -1,7 +1,7 @@
 {
   "nodeModulesDir": "manual",
   "tasks": {
-    "check": "deno fmt --check && deno lint && deno check main.ts counter.ts counter_test.ts",
+    "check": "deno fmt --check && deno lint && deno check main.ts",
     "dev": "deno run -A --watch main.ts",
     "test": "deno test -A",
     "start": "deno run -A main.ts"
