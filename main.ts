@@ -1,38 +1,37 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
 
-const counter = new VisitCounter();
+export function createHandler(counter: VisitCounter) {
+  return async function handler(req: Request): Promise<Response> {
+    const url = new URL(req.url);
 
-export async function handler(req: Request): Promise<Response> {
-  const url = new URL(req.url);
+    if (url.pathname === "/health") {
+      return Response.json({
+        ok: true,
+        service: "ifactory-product",
+        version: "0.1.0",
+      });
+    }
 
-  if (url.pathname === "/health") {
-    return Response.json({
-      ok: true,
-      service: "ifactory-product",
-      version: "0.1.0",
-    });
-  }
+    if (url.pathname === "/api/visits" && req.method === "GET") {
+      return Response.json(counter.state);
+    }
 
-  if (url.pathname === "/api/visits" && req.method === "GET") {
-    return Response.json(counter.state);
-  }
+    if (url.pathname === "/api/visits" && req.method === "POST") {
+      const body = req.headers.get("content-type")?.includes("json")
+        ? await req.json().catch(() => ({}))
+        : {};
+      const visitorId = typeof body.visitorId === "string"
+        ? body.visitorId
+        : undefined;
+      const state = counter.recordVisit(visitorId);
+      return Response.json({
+        ...state,
+        message: formatCounterMessage(state),
+      });
+    }
 
-  if (url.pathname === "/api/visits" && req.method === "POST") {
-    const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
-      : {};
-    const visitorId = typeof body.visitorId === "string"
-      ? body.visitorId
-      : undefined;
-    const state = counter.recordVisit(visitorId);
-    return Response.json({
-      ...state,
-      message: formatCounterMessage(state),
-    });
-  }
-
-  if (url.pathname === "/") {
-    const html = `<!DOCTYPE html>
+    if (url.pathname === "/") {
+      const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
 <style>
@@ -60,13 +59,18 @@ async function refresh(){const r=await fetch('/api/visits');const d=await r.json
 document.getElementById('btn').onclick=async()=>{await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitorId:'browser'})});refresh()};
 refresh();
 </script></body></html>`;
-    return new Response(html, {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
-  }
+      return new Response(html, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+    return Response.json({ error: "not found" }, { status: 404 });
+  };
 }
+
+const counter = new VisitCounter();
+
+export const handler = createHandler(counter);
 
 if (import.meta.main) {
   const port = Number(Deno.env.get("PORT") ?? 8000);
