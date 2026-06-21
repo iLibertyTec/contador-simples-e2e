@@ -2,7 +2,7 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { resetVisitsState } from "./visits_state.ts";
+import { resetVisitsStateForTest } from "./visits_state.ts";
 
 type AppHandler = (req: Request) => Promise<Response>;
 
@@ -12,7 +12,7 @@ async function loadHandler(): Promise<AppHandler> {
 }
 
 deno.test("mesmo handler compartilha estado entre requisições", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
 
   const firstResponse = await handler(
@@ -46,7 +46,7 @@ deno.test("mesmo handler compartilha estado entre requisições", async (): Prom
 });
 
 deno.test("novo import do handler compartilha estado do módulo singleton", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handlerA = await loadHandler();
 
   await handlerA(
@@ -92,7 +92,7 @@ deno.test("novo import do handler compartilha estado do módulo singleton", asyn
 });
 
 deno.test("GET /health retorna contrato HTTP atual", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/health"));
 
@@ -109,7 +109,7 @@ deno.test("GET /health retorna contrato HTTP atual", async (): Promise<void> => 
 });
 
 deno.test("POST /health mantém contrato atual e retorna health", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/health", {
@@ -130,7 +130,7 @@ deno.test("POST /health mantém contrato atual e retorna health", async (): Prom
 });
 
 deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/"));
   const body = await response.text();
@@ -147,7 +147,7 @@ deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
 });
 
 deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/api/visits"));
 
@@ -164,7 +164,7 @@ deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> =>
 });
 
 deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -190,7 +190,7 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
 });
 
 deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato atual", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -215,7 +215,7 @@ deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato 
 });
 
 deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (): Promise<void> => {
-  resetVisitsState();
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -240,8 +240,8 @@ deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (
   });
 });
 
-deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async (): Promise<void> => {
-  resetVisitsState();
+deno.test("POST /api/visits sem content-type ignora body e mantém contrato atual", async (): Promise<void> => {
+  resetVisitsStateForTest();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -263,10 +263,10 @@ deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async
   });
 });
 
-deno.test("rota inválida retorna 404 em JSON", async (): Promise<void> => {
-  resetVisitsState();
+deno.test("rota desconhecida retorna 404 com contrato atual", async (): Promise<void> => {
+  resetVisitsStateForTest();
   const handler = await loadHandler();
-  const response = await handler(new Request("http://localhost/does-not-exist"));
+  const response = await handler(new Request("http://localhost/unknown"));
 
   assertEquals(response.status, 404);
   assertEquals(

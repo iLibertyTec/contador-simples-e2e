@@ -26,7 +26,7 @@ export function getVisitsState(): VisitsState {
 
 export function registerVisit(visitorId?: string): VisitRecordResult {
   const state = counter.recordVisit(visitorId);
-  const snapshot = cloneState(state);
+  const snapshot: VisitsState = cloneState(state);
 
   return {
     ...snapshot,
@@ -34,6 +34,6 @@ export function registerVisit(visitorId?: string): VisitRecordResult {
   };
 }
 
-export function resetVisitsState(): void {
+export function resetVisitsStateForTest(): void {
   counter.reset();
 }
