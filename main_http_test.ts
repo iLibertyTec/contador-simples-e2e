@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 
 import { handler } from "./main.ts";
 
-deno.test("GET /health retorna contrato exato", async (): Promise<void> => {
+Deno.test("GET /health retorna contrato exato", async (): Promise<void> => {
   const request = new Request("http://localhost/health", {
     method: "GET",
   });
@@ -17,19 +17,17 @@ deno.test("GET /health retorna contrato exato", async (): Promise<void> => {
   assertEquals(await response.text(), '{"ok":true,"service":"contador"}');
 });
 
-deno.test("handler exposto atende GET /health como contrato HTTP", async (): Promise<void> => {
-  const server = Deno.serve({ port: 0 }, handler);
+Deno.test("POST /health retorna comportamento esperado do projeto", async (): Promise<void> => {
+  const request = new Request("http://localhost/health", {
+    method: "POST",
+  });
 
-  try {
-    const response = await fetch(`${server.addr.url}/health`);
+  const response = await handler(request);
 
-    assertEquals(response.status, 200);
-    assertEquals(
-      response.headers.get("content-type"),
-      "application/json; charset=utf-8",
-    );
-    assertEquals(await response.text(), '{"ok":true,"service":"contador"}');
-  } finally {
-    await server.shutdown();
-  }
+  assertEquals(response.status, 404);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.text(), '{"error":"not found"}');
 });
