@@ -38,3 +38,45 @@ test("createHandler uses isolated counter state for visits route", async () => {
     lastVisitor: "test-user",
   });
 });
+
+test("GET / increments visits before rendering and keeps state in the same handler", async () => {
+  const handler = createHandler(new VisitCounter());
+
+  const firstResponse = await handler(new Request("http://localhost/"));
+  assertEquals(firstResponse.status, 200);
+
+  const firstVisitsResponse = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+  assertEquals(await firstVisitsResponse.json(), {
+    visits: 1,
+    lastVisitor: undefined,
+  });
+
+  const secondResponse = await handler(new Request("http://localhost/"));
+  assertEquals(secondResponse.status, 200);
+
+  const secondVisitsResponse = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+  assertEquals(await secondVisitsResponse.json(), {
+    visits: 2,
+    lastVisitor: undefined,
+  });
+});
+
+test("only GET / increments visits", async () => {
+  const handler = createHandler(new VisitCounter());
+
+  await handler(new Request("http://localhost/health"));
+  await handler(new Request("http://localhost/", { method: "POST" }));
+  await handler(new Request("http://localhost/api/visits"));
+
+  const visitsResponse = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+  assertEquals(await visitsResponse.json(), {
+    visits: 0,
+    lastVisitor: null,
+  });
+});

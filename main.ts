@@ -30,7 +30,8 @@ export function createHandler(counter: VisitCounter) {
       });
     }
 
-    if (url.pathname === "/") {
+    if (url.pathname === "/" && req.method === "GET") {
+      counter.recordVisit();
       const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
