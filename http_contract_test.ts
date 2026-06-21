@@ -25,6 +25,32 @@ Deno.test("GET / retorna HTML mínimo com status e content-type corretos", async
   assert(body.includes("<!DOCTYPE html>") || body.includes("<html"));
 });
 
+Deno.test("GET /api/visits retorna 404 controlado em JSON", async () => {
+  const req = new Request("http://localhost/api/visits");
+
+  const res = await handler(req);
+
+  assertEquals(res.status, 404);
+  assertEquals(res.headers.get("content-type"), "application/json");
+  assertEquals(await res.json(), { error: "not found" });
+});
+
+Deno.test("POST /api/visits retorna 404 controlado em JSON", async () => {
+  const req = new Request("http://localhost/api/visits", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ visitorId: "abc" }),
+  });
+
+  const res = await handler(req);
+
+  assertEquals(res.status, 404);
+  assertEquals(res.headers.get("content-type"), "application/json");
+  assertEquals(await res.json(), { error: "not found" });
+});
+
 Deno.test("GET /nao-existe retorna 404 controlado em JSON", async () => {
   const req = new Request("http://localhost/nao-existe");
 
