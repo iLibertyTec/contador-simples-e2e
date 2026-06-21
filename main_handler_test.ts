@@ -2,9 +2,14 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { handler } from "./main.ts";
+
+async function loadHandler(): Promise<(req: Request) => Promise<Response>> {
+  const module = await import(`./main.ts?test=${crypto.randomUUID()}`);
+  return module.handler as (req: Request) => Promise<Response>;
+}
 
 deno.test("GET /health retorna contrato esperado", async (): Promise<void> => {
+  const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/health"));
 
   assertEquals(response.status, 200);
@@ -17,6 +22,7 @@ deno.test("GET /health retorna contrato esperado", async (): Promise<void> => {
 });
 
 deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
+  const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/"));
   const body = await response.text();
 
@@ -29,6 +35,7 @@ deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
 });
 
 deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> => {
+  const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/api/visits"));
 
   assertEquals(response.status, 200);
@@ -41,6 +48,7 @@ deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> =>
 });
 
 deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): Promise<void> => {
+  const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
       method: "POST",
