@@ -1,5 +1,13 @@
 import { formatCounterMessage, VisitCounter } from "./counter.ts";
 
+function buildVisitMessage(state: {
+  visits: number;
+  lastVisitor: string | null;
+}): string {
+  return formatCounterMessage(state) ||
+    `Total de visitas: ${state.visits}. Última visita: ${state.lastVisitor ?? "anônima"}.`;
+}
+
 export function createHandler(counter: VisitCounter = new VisitCounter()) {
   return async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
@@ -13,28 +21,17 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
     }
 
     if (url.pathname === "/api/visits" && req.method === "GET") {
-      return Response.json({
-        ...counter.state,
-        deprecated: true,
-        message: "Use GET / para registrar e visualizar visitas server-side.",
-      });
+      return Response.json(counter.state);
     }
 
     if (url.pathname === "/api/visits" && req.method === "POST") {
-      return Response.json(
-        {
-          error: "deprecated",
-          message:
-            "POST /api/visits foi descontinuado. Use GET / para registrar visitas.",
-        },
-        { status: 410 },
-      );
+      const state = counter.recordVisit();
+      return Response.json(state, { status: 201 });
     }
 
     if (url.pathname === "/" && req.method === "GET") {
       const state = counter.recordVisit();
-      const message = formatCounterMessage(state) ||
-        `Total de visitas: ${state.visits}. Última visita: ${state.lastVisitor ?? "anônima"}.`;
+      const message = buildVisitMessage(state);
       const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
