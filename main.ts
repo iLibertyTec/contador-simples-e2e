@@ -8,7 +8,7 @@ export async function handler(req: Request): Promise<Response> {
     });
   }
 
-  if (url.pathname === "/") {
+  if (req.method === "GET" && url.pathname === "/") {
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -25,6 +25,7 @@ export async function handler(req: Request): Promise<Response> {
 </html>`;
 
     return new Response(html, {
+      status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
     });
   }
