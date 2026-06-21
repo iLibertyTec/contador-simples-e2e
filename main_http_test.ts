@@ -1,4 +1,4 @@
-import { assertEquals, assertMatch } from "@std/assert";
+import { assertEquals, assertMatch, assertNotMatch } from "@std/assert";
 
 import { handler } from "./main.ts";
 
@@ -46,4 +46,6 @@ Deno.test("GET / retorna HTML estático básico", async (): Promise<void> => {
     "text/html; charset=utf-8",
   );
   assertMatch(body, /<!DOCTYPE html>|<html[\s>]/i);
+  assertMatch(body, /<h1>Contador Simples<\/h1>/i);
+  assertNotMatch(body, /\/api\/visits/i);
 });
