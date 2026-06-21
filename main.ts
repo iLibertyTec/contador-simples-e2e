@@ -9,8 +9,7 @@ export function createHandler(counter: VisitCounter): (
     if (url.pathname === "/health") {
       return Response.json({
         ok: true,
-        service: "ifactory-product",
-        version: "0.1.0",
+        service: "contador",
       });
     }
 
