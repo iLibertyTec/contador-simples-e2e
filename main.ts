@@ -33,7 +33,7 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
     if (url.pathname === "/" && req.method === "GET") {
       const state = counter.recordVisit();
       const message = formatCounterMessage(state) ||
-        `Total de visitas: ${state.visits}`;
+        `Total de visitas: ${state.visits}. Última visita: ${state.lastVisitor ?? "anônima"}.`;
       const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
@@ -49,10 +49,10 @@ p{color:var(--mut);font-size:.9rem;margin-bottom:20px}
 </style></head>
 <body><div class="card">
 <h1>Visit Analytics</h1>
-<p>Atualize a página para registrar uma nova visita no servidor.</p>
+<p>O contador é atualizado no servidor a cada recarga de GET /.</p>
 <div id="count">${state.visits}</div>
 <p id="msg">${message}</p>
-<div class="badge">iFactory Product · Deno Deploy</div>
+<div class="badge">Estado atual: ${state.visits} visita(s) · última visita ${state.lastVisitor ?? "anônima"}</div>
 </div></body></html>`;
       return new Response(html, {
         headers: { "content-type": "text/html; charset=utf-8" },

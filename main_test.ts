@@ -77,7 +77,7 @@ Deno.test("GET / renderiza contador server-side sem script ou botão de incremen
   assertMatch(html, /<p id="msg">.+<\/p>/);
   assertMatch(
     html,
-    /Atualize a página para registrar uma nova visita no servidor\./,
+    /O contador é atualizado no servidor a cada recarga de GET \/.*/,
   );
   assertNotMatch(html, /<button/i);
   assertNotMatch(html, /<script/i);
@@ -99,6 +99,30 @@ Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {
 
   assertMatch(html1, /<div id="count">1<\/div>/);
   assertMatch(html2, /<div id="count">2<\/div>/);
+});
+
+Deno.test("GET / mantém mensagem legível e consistente em recargas subsequentes", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const response1 = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+  const response2 = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+
+  const html1 = await response1.text();
+  const html2 = await response2.text();
+
+  assertMatch(html1, /<div id="count">1<\/div>/);
+  assertMatch(html2, /<div id="count">2<\/div>/);
+  assertMatch(html1, /<p id="msg">.+<\/p>/);
+  assertMatch(html2, /<p id="msg">.+<\/p>/);
+  assertNotMatch(html1, /<p id="msg"><\/p>/);
+  assertNotMatch(html2, /<p id="msg"><\/p>/);
+  assertNotMatch(html1, /undefined/);
+  assertNotMatch(html2, /undefined/);
+  assertMatch(html2, /Estado atual: 2 visita\(s\) · última visita anônima/);
 });
 
 Deno.test("GET / renderiza mensagem visível de contador com fallback", async () => {
