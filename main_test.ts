@@ -1,6 +1,7 @@
 import {
   assertEquals,
   assertMatch,
+  assertNotMatch,
   assertNotStrictEquals,
 } from "@std/assert";
 import { VisitCounter } from "./counter.ts";
@@ -61,6 +62,22 @@ Deno.test("GET / incrementa contador e renderiza valor inicial no HTML", async (
     visits: 1,
     lastVisitor: null,
   });
+});
+
+Deno.test("GET / renderiza contador server-side sem script ou botão de incremento", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const response = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+
+  const html = await response.text();
+
+  assertMatch(html, /<div id="count">1<\/div>/);
+  assertMatch(html, /<p id="msg">/);
+  assertNotMatch(html, /<button/i);
+  assertNotMatch(html, /<script/i);
+  assertNotMatch(html, /\/api\/visits/);
 });
 
 Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {

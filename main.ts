@@ -43,23 +43,15 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink);min-
 h1{font-size:1.35rem;margin-bottom:8px}
 p{color:var(--mut);font-size:.9rem;margin-bottom:20px}
 #count{font-size:3rem;font-weight:700;color:var(--accent);margin:12px 0}
-button{background:var(--accent);color:#fff;border:none;padding:12px 24px;border-radius:10px;font-weight:600;cursor:pointer}
 .badge{display:inline-block;margin-top:16px;font-size:.75rem;color:var(--mut)}
 </style></head>
 <body><div class="card">
 <h1>Visit Analytics</h1>
 <p>Evolved by the iFactory autonomous team.</p>
 <div id="count">${state.visits}</div>
-<p id="msg"></p>
-<button id="btn">Registrar visita</button>
+<p id="msg">${formatCounterMessage(state)}</p>
 <div class="badge">iFactory Product · Deno Deploy</div>
-</div>
-<script>
-const countEl=document.getElementById('count'),msgEl=document.getElementById('msg');
-async function refresh(){const r=await fetch('/api/visits');const d=await r.json();countEl.textContent=d.visits;msgEl.textContent=d.lastVisitor?'Último: '+d.lastVisitor:''}
-document.getElementById('btn').onclick=async()=>{await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visitorId:'browser'})});refresh()};
-refresh();
-</script></body></html>`;
+</div></body></html>`;
       return new Response(html, {
         headers: { "content-type": "text/html; charset=utf-8" },
       });
