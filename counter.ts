@@ -5,7 +5,7 @@ export type VisitState = {
 };
 
 export class VisitCounter {
-  #visits = 0;
+  #visits: number = 0;
   #lastVisitor?: string;
 
   get state(): VisitState {
@@ -16,9 +16,16 @@ export class VisitCounter {
     };
   }
 
-  recordVisit(visitorId?: string): VisitState {
+  incrementVisit(): VisitState {
     this.#visits += 1;
-    if (visitorId) this.#lastVisitor = visitorId;
+    return this.state;
+  }
+
+  recordVisit(visitorId?: string): VisitState {
+    const state: VisitState = this.incrementVisit();
+    if (visitorId) {
+      this.#lastVisitor = visitorId;
+    }
     return this.state;
   }
 
@@ -29,7 +36,7 @@ export class VisitCounter {
 }
 
 export function formatCounterMessage(state: VisitState): string {
-  const n = state.visits;
+  const n: number = state.visits;
   if (n === 0) return "Nenhuma visita registrada.";
   if (n === 1) return "Uma visita registrada.";
   return `${n} visitas registradas.`;
