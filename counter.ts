@@ -22,7 +22,7 @@ export class VisitCounter {
   }
 
   recordVisit(visitorId?: string): VisitState {
-    const state: VisitState = this.incrementVisit();
+    this.#visits += 1;
     if (visitorId) {
       this.#lastVisitor = visitorId;
     }

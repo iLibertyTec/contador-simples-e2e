@@ -18,6 +18,17 @@ Deno.test("VisitCounter incrementVisit incrementa uma visita por chamada", () =>
   assertEquals(counter.state.visits, 2);
 });
 
+Deno.test("VisitCounter incrementVisit não altera lastVisitor", () => {
+  const counter: VisitCounter = new VisitCounter();
+
+  counter.recordVisit("a");
+  const state = counter.incrementVisit();
+
+  assertEquals(state.visits, 2);
+  assertEquals(state.lastVisitor, "a");
+  assertEquals(counter.state.lastVisitor, "a");
+});
+
 Deno.test("VisitCounter recordVisit mantém compatibilidade e registra último visitante", () => {
   const counter: VisitCounter = new VisitCounter();
 
