@@ -13,21 +13,22 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
     }
 
     if (url.pathname === "/api/visits" && req.method === "GET") {
-      return Response.json(counter.state);
+      return Response.json({
+        ...counter.state,
+        deprecated: true,
+        message: "Use GET / para registrar e visualizar visitas server-side.",
+      });
     }
 
     if (url.pathname === "/api/visits" && req.method === "POST") {
-      const body = req.headers.get("content-type")?.includes("json")
-        ? await req.json().catch((): Record<string, unknown> => ({}))
-        : {};
-      const visitorId = typeof body.visitorId === "string"
-        ? body.visitorId
-        : undefined;
-      const state = counter.recordVisit(visitorId);
-      return Response.json({
-        ...state,
-        message: formatCounterMessage(state),
-      });
+      return Response.json(
+        {
+          error: "deprecated",
+          message:
+            "POST /api/visits foi descontinuado. Use GET / para registrar visitas.",
+        },
+        { status: 410 },
+      );
     }
 
     if (url.pathname === "/" && req.method === "GET") {
@@ -43,16 +44,13 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:grid;place-items:center}
 .card{background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:36px;text-align:center;max-width:420px;width:90%}
 h1{font-size:1.35rem;margin-bottom:8px}
-p{color:var(--mut);font-size:.9rem;margin-bottom:20px}
-#count{font-size:3rem;font-weight:700;color:var(--accent);margin:12px 0}
-.badge{display:inline-block;margin-top:16px;font-size:.75rem;color:var(--mut)}
+p{color:var(--mut);font-size:.95rem;margin-top:16px}
+#count{font-size:3rem;font-weight:700;color:var(--accent);margin-top:12px}
 </style></head>
 <body><div class="card">
 <h1>Visit Analytics</h1>
-<p>O contador é atualizado no servidor a cada recarga de GET /.</p>
 <div id="count">${state.visits}</div>
 <p id="msg">${message}</p>
-<div class="badge">Estado atual: ${state.visits} visita(s) · última visita ${state.lastVisitor ?? "anônima"}</div>
 </div></body></html>`;
       return new Response(html, {
         headers: { "content-type": "text/html; charset=utf-8" },

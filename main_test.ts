@@ -13,13 +13,20 @@ Deno.test("createHandler cria handlers isolados por instância", async () => {
 
   assertNotStrictEquals(handlerA, handlerB);
 
-  await handlerA(
+  const deprecatedPostResponse = await handlerA(
     new Request("http://localhost/api/visits", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ visitorId: "alice" }),
     }),
   );
+
+  assertEquals(deprecatedPostResponse.status, 410);
+  assertEquals(await deprecatedPostResponse.json(), {
+    error: "deprecated",
+    message:
+      "POST /api/visits foi descontinuado. Use GET / para registrar visitas.",
+  });
 
   const responseA = await handlerA(
     new Request("http://localhost/api/visits", { method: "GET" }),
@@ -29,12 +36,16 @@ Deno.test("createHandler cria handlers isolados por instância", async () => {
   );
 
   assertEquals(await responseA.json(), {
-    visits: 1,
-    lastVisitor: "alice",
+    visits: 0,
+    lastVisitor: null,
+    deprecated: true,
+    message: "Use GET / para registrar e visualizar visitas server-side.",
   });
   assertEquals(await responseB.json(), {
     visits: 0,
     lastVisitor: null,
+    deprecated: true,
+    message: "Use GET / para registrar e visualizar visitas server-side.",
   });
 });
 
@@ -61,6 +72,8 @@ Deno.test("GET / incrementa contador e renderiza valor inicial no HTML", async (
   assertEquals(await visitsResponse.json(), {
     visits: 1,
     lastVisitor: null,
+    deprecated: true,
+    message: "Use GET / para registrar e visualizar visitas server-side.",
   });
 });
 
@@ -75,13 +88,10 @@ Deno.test("GET / renderiza contador server-side sem script ou botão de incremen
 
   assertMatch(html, /<div id="count">1<\/div>/);
   assertMatch(html, /<p id="msg">.+<\/p>/);
-  assertMatch(
-    html,
-    /O contador é atualizado no servidor a cada recarga de GET \/.*/,
-  );
   assertNotMatch(html, /<button/i);
   assertNotMatch(html, /<script/i);
   assertNotMatch(html, /\/api\/visits/);
+  assertNotMatch(html, /Estado atual:/);
 });
 
 Deno.test("GET / consecutivos exibem 1 e 2 no HTML", async () => {
@@ -122,7 +132,7 @@ Deno.test("GET / mantém mensagem legível e consistente em recargas subsequente
   assertNotMatch(html2, /<p id="msg"><\/p>/);
   assertNotMatch(html1, /undefined/);
   assertNotMatch(html2, /undefined/);
-  assertMatch(html2, /Estado atual: 2 visita\(s\) · última visita anônima/);
+  assertMatch(html2, /Total de visitas: 2\. Última visita: anônima\./);
 });
 
 Deno.test("GET / renderiza mensagem visível de contador com fallback", async () => {
@@ -135,6 +145,7 @@ Deno.test("GET / renderiza mensagem visível de contador com fallback", async ()
   const html = await response.text();
 
   assertMatch(html, /<p id="msg">.+<\/p>/);
+  assertMatch(html, /Total de visitas: 1\. Última visita: anônima\./);
   assertNotMatch(html, /<p id="msg"><\/p>/);
   assertNotMatch(html, /<p id="msg">undefined<\/p>/);
 });
@@ -187,6 +198,61 @@ Deno.test("GET /health não incrementa contador entre visitas reais", async () =
   assertMatch(html2, /<div id="count">2<\/div>/);
 });
 
+Deno.test("GET /api/visits expõe estado sem incrementar e marca depreciação", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const pageResponse = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+  const html = await pageResponse.text();
+  assertMatch(html, /<div id="count">1<\/div>/);
+
+  const apiResponse = await localHandler(
+    new Request("http://localhost/api/visits", { method: "GET" }),
+  );
+
+  assertEquals(apiResponse.status, 200);
+  assertEquals(await apiResponse.json(), {
+    visits: 1,
+    lastVisitor: null,
+    deprecated: true,
+    message: "Use GET / para registrar e visualizar visitas server-side.",
+  });
+
+  const nextPageResponse = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+  const nextHtml = await nextPageResponse.text();
+  assertMatch(nextHtml, /<div id="count">2<\/div>/);
+});
+
+Deno.test("POST /api/visits retorna 410 e não incrementa contador", async () => {
+  const localHandler = createHandler(new VisitCounter());
+
+  const postResponse = await localHandler(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ visitorId: "alice" }),
+    }),
+  );
+
+  assertEquals(postResponse.status, 410);
+  assertEquals(await postResponse.json(), {
+    error: "deprecated",
+    message:
+      "POST /api/visits foi descontinuado. Use GET / para registrar visitas.",
+  });
+
+  const pageResponse = await localHandler(
+    new Request("http://localhost/", { method: "GET" }),
+  );
+  const html = await pageResponse.text();
+
+  assertMatch(html, /<div id="count">1<\/div>/);
+  assertMatch(html, /Total de visitas: 1\. Última visita: anônima\./);
+});
+
 Deno.test("handler padrão preserva comportamento de /health", async () => {
   const response = await handler(new Request("http://localhost/health"));
 
@@ -200,7 +266,10 @@ Deno.test("handler padrão preserva comportamento de /health", async () => {
 
 Deno.test("handler retorna 404 para rota desconhecida", async () => {
   const localHandler = createHandler(new VisitCounter());
-  const response = await localHandler(new Request("http://localhost/unknown"));
+
+  const response = await localHandler(
+    new Request("http://localhost/unknown", { method: "GET" }),
+  );
 
   assertEquals(response.status, 404);
   assertEquals(await response.json(), { error: "not found" });
