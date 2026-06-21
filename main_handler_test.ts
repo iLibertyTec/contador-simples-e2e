@@ -2,6 +2,7 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
+import { resetVisitsState } from "./visits_state.ts";
 
 type AppHandler = (req: Request) => Promise<Response>;
 
@@ -11,6 +12,7 @@ async function loadHandler(): Promise<AppHandler> {
 }
 
 deno.test("mesmo handler compartilha estado entre requisições", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
 
   const firstResponse = await handler(
@@ -44,6 +46,7 @@ deno.test("mesmo handler compartilha estado entre requisições", async (): Prom
 });
 
 deno.test("novo import do handler compartilha estado do módulo singleton", async (): Promise<void> => {
+  resetVisitsState();
   const handlerA = await loadHandler();
 
   await handlerA(
@@ -89,6 +92,7 @@ deno.test("novo import do handler compartilha estado do módulo singleton", asyn
 });
 
 deno.test("GET /health retorna contrato HTTP atual", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/health"));
 
@@ -105,6 +109,7 @@ deno.test("GET /health retorna contrato HTTP atual", async (): Promise<void> => 
 });
 
 deno.test("POST /health mantém contrato atual e retorna health", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/health", {
@@ -125,6 +130,7 @@ deno.test("POST /health mantém contrato atual e retorna health", async (): Prom
 });
 
 deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/"));
   const body = await response.text();
@@ -141,6 +147,7 @@ deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
 });
 
 deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/api/visits"));
 
@@ -157,6 +164,7 @@ deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> =>
 });
 
 deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -182,6 +190,7 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
 });
 
 deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -207,6 +216,7 @@ deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (
 });
 
 deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async (): Promise<void> => {
+  resetVisitsState();
   const handler = await loadHandler();
   const response = await handler(
     new Request("http://localhost/api/visits", {
@@ -225,5 +235,27 @@ deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async
     uniqueVisitors: 0,
     lastVisitor: null,
     message: "Total visits: 1 · Unique visitors: 0",
+  });
+});
+
+deno.test("getVisitsState retorna cópia e não permite mutar o estado compartilhado", async (): Promise<void> => {
+  resetVisitsState();
+  const visitsStateModule = await import(
+    `./visits_state.ts?test=${crypto.randomUUID()}`
+  );
+
+  const state = visitsStateModule.getVisitsState() as {
+    visits: number;
+    uniqueVisitors: number;
+    lastVisitor: string | null;
+  };
+  state.visits = 999;
+  state.uniqueVisitors = 999;
+  state.lastVisitor = "mutated";
+
+  assertEquals(visitsStateModule.getVisitsState(), {
+    visits: 0,
+    uniqueVisitors: 0,
+    lastVisitor: null,
   });
 });

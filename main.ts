@@ -1,4 +1,4 @@
-import { getVisitsState, recordVisit } from "./visits_state.ts";
+import { getVisitsState, registerVisit } from "./visits_state.ts";
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -22,7 +22,7 @@ export async function handler(req: Request): Promise<Response> {
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
       : undefined;
-    return Response.json(recordVisit(visitorId));
+    return Response.json(registerVisit(visitorId));
   }
 
   if (url.pathname === "/") {
