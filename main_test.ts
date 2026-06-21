@@ -6,8 +6,10 @@ import {
 } from "@std/assert";
 import { handler } from "./main.ts";
 
-Deno.test("GET /health retorna contrato JSON esperado", async () => {
-  const response = await handler(new Request("http://localhost/health"));
+Deno.test("GET /health retorna contrato JSON esperado", async (): Promise<void> => {
+  const response: Response = await handler(
+    new Request("http://localhost/health"),
+  );
 
   assertEquals(response.status, 200);
   assertStringIncludes(
@@ -28,8 +30,8 @@ Deno.test("GET /health retorna contrato JSON esperado", async () => {
   });
 });
 
-Deno.test("GET / retorna HTML estático mínimo", async () => {
-  const response = await handler(new Request("http://localhost/"));
+Deno.test("GET / retorna HTML estático mínimo", async (): Promise<void> => {
+  const response: Response = await handler(new Request("http://localhost/"));
 
   assertEquals(response.status, 200);
   assertStringIncludes(
@@ -47,4 +49,38 @@ Deno.test("GET / retorna HTML estático mínimo", async () => {
   assertStringIncludes(body, "<html");
   assertStringNotIncludes(body, "/api/visits");
   assertStringNotIncludes(body, "fetch(");
+});
+
+Deno.test("GET /api/visits retorna 404 de forma controlada", async (): Promise<void> => {
+  const response: Response = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+
+  assertEquals(response.status, 404);
+  assertStringIncludes(
+    response.headers.get("content-type") ?? "",
+    "application/json",
+  );
+
+  const body: unknown = await response.json();
+
+  assertEquals(body, { error: "not found" });
+});
+
+Deno.test("POST /api/visits retorna 404 de forma controlada", async (): Promise<void> => {
+  const response: Response = await handler(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assertStringIncludes(
+    response.headers.get("content-type") ?? "",
+    "application/json",
+  );
+
+  const body: unknown = await response.json();
+
+  assertEquals(body, { error: "not found" });
 });
