@@ -37,20 +37,25 @@ export async function readOptionalVisitorId(
     return { invalidJson: false };
   }
 
+  const bodyText = await req.text();
+
+  if (bodyText.trim() === "") {
+    return { invalidJson: false };
+  }
+
   let body: unknown;
 
   try {
-    body = await req.json();
+    body = JSON.parse(bodyText);
   } catch {
     return { invalidJson: true };
   }
 
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "visitorId" in body &&
-    typeof body.visitorId === "string"
-  ) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { invalidJson: true };
+  }
+
+  if ("visitorId" in body && typeof body.visitorId === "string") {
     return {
       visitorId: body.visitorId,
       invalidJson: false,

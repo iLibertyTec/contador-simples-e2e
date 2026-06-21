@@ -213,10 +213,90 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
   });
 });
 
+deno.test("GET da rota Fresh /health retorna contrato esperado", async (): Promise<void> => {
+  const route = await loadHealthRoute();
+  const response = route.GET(new Request("http://localhost/health"));
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+});
+
+deno.test("GET da rota Fresh /api/visits retorna contador inicial", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = route.GET(new Request("http://localhost/api/visits"));
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 0,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+  });
+});
+
+deno.test("POST da rota Fresh /api/visits incrementa contador e retorna mensagem", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ visitorId: "browser" }),
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
+    message: "Total visits: 1 · Unique visitors: 1 · Last visitor: browser",
+  });
+});
+
+deno.test("POST da rota Fresh /api/visits aceita content-type json com body vazio", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: "",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+    message: "Total visits: 1 · Unique visitors: 0 · Last visitor: anonymous",
+  });
+});
+
 deno.test("POST da rota Fresh /api/visits retorna 400 para JSON inválido", async (): Promise<void> => {
   resetVisitsStateForTest();
   const route = await loadVisitsRoute();
-
   const response = await route.POST(
     new Request("http://localhost/api/visits", {
       method: "POST",
@@ -235,11 +315,42 @@ deno.test("POST da rota Fresh /api/visits retorna 400 para JSON inválido", asyn
   assertEquals(await response.json(), {
     error: "invalid json body",
   });
+});
 
-  const stateResponse = route.GET(new Request("http://localhost/api/visits"));
-  assertEquals(await stateResponse.json(), {
-    visits: 0,
+deno.test("POST da rota Fresh /api/visits retorna 400 para JSON não-objeto", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(["browser"]),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: "invalid json body",
+  });
+});
+
+deno.test("POST da rota Fresh /api/visits ignora body sem content-type json", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    visits: 1,
     uniqueVisitors: 0,
     lastVisitor: null,
+    message: "Total visits: 1 · Unique visitors: 0 · Last visitor: anonymous",
   });
 });
