@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { handler } from "./main.ts";
 
 Deno.test("GET /health retorna contrato exato do contador", async () => {
@@ -12,4 +12,15 @@ Deno.test("GET /health retorna contrato exato do contador", async () => {
     ok: true,
     service: "contador",
   });
+});
+
+Deno.test("GET / retorna HTML mínimo com status e content-type corretos", async () => {
+  const req = new Request("http://localhost/");
+
+  const res = await handler(req);
+  const body = await res.text();
+
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("content-type"), "text/html; charset=utf-8");
+  assert(body.includes("<!DOCTYPE html>") || body.includes("<html"));
 });
