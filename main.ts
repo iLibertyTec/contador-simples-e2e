@@ -23,7 +23,7 @@ export async function handler(req: Request): Promise<Response> {
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
     const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
+      ? await req.json().catch((): Record<string, unknown> => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
@@ -43,7 +43,12 @@ export async function handler(req: Request): Promise<Response> {
     });
   }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+  return new Response(JSON.stringify({ error: "not found" }), {
+    status: 404,
+    headers: {
+      "content-type": "application/json",
+    },
+  });
 }
 
 if (import.meta.main) {

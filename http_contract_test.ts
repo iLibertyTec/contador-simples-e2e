@@ -24,3 +24,13 @@ Deno.test("GET / retorna HTML mínimo com status e content-type corretos", async
   assertEquals(res.headers.get("content-type"), "text/html; charset=utf-8");
   assert(body.includes("<!DOCTYPE html>") || body.includes("<html"));
 });
+
+Deno.test("GET /nao-existe retorna 404 controlado em JSON", async () => {
+  const req = new Request("http://localhost/nao-existe");
+
+  const res = await handler(req);
+
+  assertEquals(res.status, 404);
+  assertEquals(res.headers.get("content-type"), "application/json");
+  assertEquals(await res.json(), { error: "not found" });
+});
