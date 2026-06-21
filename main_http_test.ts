@@ -49,3 +49,33 @@ Deno.test("GET / retorna HTML estático básico", async (): Promise<void> => {
   assertMatch(body, /<h1>Contador Simples<\/h1>/i);
   assertNotMatch(body, /\/api\/visits/i);
 });
+
+Deno.test("GET /api/visits retorna 404 controlado", async (): Promise<void> => {
+  const request = new Request("http://localhost/api/visits", {
+    method: "GET",
+  });
+
+  const response = await handler(request);
+
+  assertEquals(response.status, 404);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.text(), '{"error":"not found"}');
+});
+
+Deno.test("POST /api/visits retorna 404 controlado", async (): Promise<void> => {
+  const request = new Request("http://localhost/api/visits", {
+    method: "POST",
+  });
+
+  const response = await handler(request);
+
+  assertEquals(response.status, 404);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.text(), '{"error":"not found"}');
+});
