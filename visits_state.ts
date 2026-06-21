@@ -10,7 +10,10 @@ export type VisitRecordResult = VisitsState & {
   message: string;
 };
 
-const counter: VisitCounter = new VisitCounter();
+export type VisitsService = {
+  getState(): VisitsState;
+  registerVisit(visitorId?: string): VisitRecordResult;
+};
 
 function cloneState(state: VisitsState): VisitsState {
   return {
@@ -20,20 +23,26 @@ function cloneState(state: VisitsState): VisitsState {
   };
 }
 
-export function getVisitsState(): VisitsState {
-  return cloneState(counter.state);
-}
-
-export function registerVisit(visitorId?: string): VisitRecordResult {
-  const state = counter.recordVisit(visitorId);
-  const snapshot: VisitsState = cloneState(state);
-
+export function createVisitsService(counter: VisitCounter): VisitsService {
   return {
-    ...snapshot,
-    message: formatCounterMessage(snapshot),
+    getState(): VisitsState {
+      return cloneState(counter.state);
+    },
+    registerVisit(visitorId?: string): VisitRecordResult {
+      const state = counter.recordVisit(visitorId);
+      const snapshot: VisitsState = cloneState(state);
+
+      return {
+        ...snapshot,
+        message: formatCounterMessage(snapshot),
+      };
+    },
   };
 }
 
-export function resetVisitsStateForTest(): void {
-  counter.reset();
+const sharedCounter: VisitCounter = new VisitCounter();
+const sharedVisitsService: VisitsService = createVisitsService(sharedCounter);
+
+export function getSharedVisitsService(): VisitsService {
+  return sharedVisitsService;
 }

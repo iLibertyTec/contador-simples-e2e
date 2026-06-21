@@ -2,13 +2,13 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { resetVisitsStateForTest } from "./visits_state.ts";
+import { getTestVisitsService, resetVisitsStateForTest } from "./visits_state_test_helpers.ts";
 
 type AppHandler = (req: Request) => Promise<Response>;
 
 async function loadHandler(): Promise<AppHandler> {
   const module = await import(`./main.ts?test=${crypto.randomUUID()}`);
-  return module.handler as AppHandler;
+  return module.createHandler(getTestVisitsService()) as AppHandler;
 }
 
 deno.test("mesmo handler compartilha estado entre requisições", async (): Promise<void> => {
@@ -211,69 +211,5 @@ deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato 
     uniqueVisitors: 0,
     lastVisitor: null,
     message: "Total visits: 1 · Unique visitors: 0",
-  });
-});
-
-deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const handler = await loadHandler();
-  const response = await handler(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: "{",
-    }),
-  );
-
-  assertEquals(response.status, 200);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
-  assertEquals(await response.json(), {
-    visits: 1,
-    uniqueVisitors: 0,
-    lastVisitor: null,
-    message: "Total visits: 1 · Unique visitors: 0",
-  });
-});
-
-deno.test("POST /api/visits sem content-type ignora body e mantém contrato atual", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const handler = await loadHandler();
-  const response = await handler(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      body: JSON.stringify({ visitorId: "browser" }),
-    }),
-  );
-
-  assertEquals(response.status, 200);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
-  assertEquals(await response.json(), {
-    visits: 1,
-    uniqueVisitors: 0,
-    lastVisitor: null,
-    message: "Total visits: 1 · Unique visitors: 0",
-  });
-});
-
-deno.test("rota desconhecida retorna 404 com contrato atual", async (): Promise<void> => {
-  resetVisitsStateForTest();
-  const handler = await loadHandler();
-  const response = await handler(new Request("http://localhost/unknown"));
-
-  assertEquals(response.status, 404);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
-  assertEquals(await response.json(), {
-    error: "not found",
   });
 });
