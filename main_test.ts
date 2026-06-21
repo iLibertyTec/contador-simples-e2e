@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 
 import { VisitCounter } from "./counter.ts";
 import { createHandler } from "./main.ts";
@@ -44,6 +44,11 @@ test("GET / increments visits before rendering and keeps state in the same handl
 
   const firstResponse = await handler(new Request("http://localhost/"));
   assertEquals(firstResponse.status, 200);
+  assertEquals(
+    firstResponse.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assertStringIncludes(await firstResponse.text(), '<div id="count">1</div>');
 
   const firstVisitsResponse = await handler(
     new Request("http://localhost/api/visits"),
@@ -55,6 +60,11 @@ test("GET / increments visits before rendering and keeps state in the same handl
 
   const secondResponse = await handler(new Request("http://localhost/"));
   assertEquals(secondResponse.status, 200);
+  assertEquals(
+    secondResponse.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+  assertStringIncludes(await secondResponse.text(), '<div id="count">2</div>');
 
   const secondVisitsResponse = await handler(
     new Request("http://localhost/api/visits"),
