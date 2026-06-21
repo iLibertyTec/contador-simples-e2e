@@ -3,7 +3,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { VisitCounter } from "./counter.ts";
 import { createHandler } from "./main.ts";
 
-test("createHandler uses isolated counter state for visits route", async () => {
+Deno.test("createHandler uses isolated counter state for visits route", async () => {
   const handler = createHandler(new VisitCounter());
 
   const initialResponse = await handler(
@@ -39,7 +39,7 @@ test("createHandler uses isolated counter state for visits route", async () => {
   });
 });
 
-test("GET / increments visits before rendering and keeps state in the same handler", async () => {
+Deno.test("GET / increments visits before rendering and keeps state in the same handler", async () => {
   const handler = createHandler(new VisitCounter());
 
   const firstResponse = await handler(new Request("http://localhost/"));
@@ -75,7 +75,7 @@ test("GET / increments visits before rendering and keeps state in the same handl
   });
 });
 
-test("only GET / increments visits", async () => {
+Deno.test("only GET / increments visits", async () => {
   const handler = createHandler(new VisitCounter());
 
   await handler(new Request("http://localhost/health"));
@@ -89,4 +89,51 @@ test("only GET / increments visits", async () => {
     visits: 0,
     lastVisitor: null,
   });
+});
+
+Deno.test("GET /health before GET / does not increment the homepage counter", async () => {
+  const handler = createHandler(new VisitCounter());
+
+  const healthResponse = await handler(new Request("http://localhost/health"));
+  assertEquals(healthResponse.status, 200);
+  assertEquals(await healthResponse.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+
+  const homepageResponse = await handler(new Request("http://localhost/"));
+  assertEquals(homepageResponse.status, 200);
+  assertStringIncludes(
+    await homepageResponse.text(),
+    '<div id="count">1</div>',
+  );
+});
+
+Deno.test("GET /health after GET / does not alter the next homepage counter value", async () => {
+  const handler = createHandler(new VisitCounter());
+
+  const firstHomepageResponse = await handler(new Request("http://localhost/"));
+  assertEquals(firstHomepageResponse.status, 200);
+  assertStringIncludes(
+    await firstHomepageResponse.text(),
+    '<div id="count">1</div>',
+  );
+
+  const healthResponse = await handler(new Request("http://localhost/health"));
+  assertEquals(healthResponse.status, 200);
+  assertEquals(await healthResponse.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+
+  const secondHomepageResponse = await handler(
+    new Request("http://localhost/"),
+  );
+  assertEquals(secondHomepageResponse.status, 200);
+  assertStringIncludes(
+    await secondHomepageResponse.text(),
+    '<div id="count">2</div>',
+  );
 });
