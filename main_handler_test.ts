@@ -2,13 +2,33 @@ import {
   assertEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { getTestVisitsService, resetVisitsStateForTest } from "./visits_state_test_helpers.ts";
+import {
+  getTestVisitsService,
+  resetVisitsStateForTest,
+} from "./visits_state_test_helpers.ts";
 
 type AppHandler = (req: Request) => Promise<Response>;
+
+type HealthRouteModule = {
+  GET: (req: Request) => Response;
+};
+
+type VisitsRouteModule = {
+  GET: (req: Request) => Response;
+  POST: (req: Request) => Promise<Response>;
+};
 
 async function loadHandler(): Promise<AppHandler> {
   const module = await import(`./main.ts?test=${crypto.randomUUID()}`);
   return module.createHandler(getTestVisitsService()) as AppHandler;
+}
+
+async function loadHealthRoute(): Promise<HealthRouteModule> {
+  return await import(`./routes/health.ts?test=${crypto.randomUUID()}`) as HealthRouteModule;
+}
+
+async function loadVisitsRoute(): Promise<VisitsRouteModule> {
+  return await import(`./routes/api/visits.ts?test=${crypto.randomUUID()}`) as VisitsRouteModule;
 }
 
 deno.test("mesmo handler compartilha estado entre requisições", async (): Promise<void> => {
@@ -198,6 +218,114 @@ deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato 
       headers: {
         "content-type": "application/json",
       },
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+    message: "Total visits: 1 · Unique visitors: 0",
+  });
+});
+
+deno.test("rota Fresh GET /health retorna contrato JSON esperado", async (): Promise<void> => {
+  const route = await loadHealthRoute();
+  const response = route.GET(new Request("http://localhost/health"));
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+});
+
+deno.test("rota Fresh GET /api/visits retorna estado atual", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = route.GET(new Request("http://localhost/api/visits"));
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 0,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+  });
+});
+
+deno.test("rota Fresh POST /api/visits registra visitorId e retorna estado com message", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ visitorId: "browser" }),
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
+    message: "Total visits: 1 · Unique visitors: 1 · Last visitor: browser",
+  });
+});
+
+deno.test("rota Fresh POST /api/visits com body inválido é resiliente", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: "{",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    visits: 1,
+    uniqueVisitors: 0,
+    lastVisitor: null,
+    message: "Total visits: 1 · Unique visitors: 0",
+  });
+});
+
+deno.test("rota Fresh POST /api/visits sem content-type registra visita sem visitorId", async (): Promise<void> => {
+  resetVisitsStateForTest();
+  const route = await loadVisitsRoute();
+  const response = await route.POST(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      body: JSON.stringify({ visitorId: "browser" }),
     }),
   );
 

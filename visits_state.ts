@@ -23,6 +23,27 @@ function cloneState(state: VisitsState): VisitsState {
   };
 }
 
+export async function readOptionalVisitorId(req: Request): Promise<string | undefined> {
+  const contentType = req.headers.get("content-type");
+
+  if (!contentType?.includes("json")) {
+    return undefined;
+  }
+
+  const body: unknown = await req.json().catch((): {} => ({}));
+
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "visitorId" in body &&
+    typeof body.visitorId === "string"
+  ) {
+    return body.visitorId;
+  }
+
+  return undefined;
+}
+
 export function createVisitsService(counter: VisitCounter): VisitsService {
   return {
     getState(): VisitsState {
