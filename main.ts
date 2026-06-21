@@ -30,7 +30,8 @@ export function createHandler(counter: VisitCounter = new VisitCounter()) {
       });
     }
 
-    if (url.pathname === "/") {
+    if (url.pathname === "/" && req.method === "GET") {
+      const state = counter.recordVisit();
       const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iFactory Product — Visit Analytics</title>
@@ -48,7 +49,7 @@ button{background:var(--accent);color:#fff;border:none;padding:12px 24px;border-
 <body><div class="card">
 <h1>Visit Analytics</h1>
 <p>Evolved by the iFactory autonomous team.</p>
-<div id="count">0</div>
+<div id="count">${state.visits}</div>
 <p id="msg"></p>
 <button id="btn">Registrar visita</button>
 <div class="badge">iFactory Product · Deno Deploy</div>
