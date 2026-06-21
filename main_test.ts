@@ -84,3 +84,37 @@ Deno.test("POST /api/visits retorna 404 de forma controlada", async (): Promise<
 
   assertEquals(body, { error: "not found" });
 });
+
+Deno.test("GET /rota-inexistente retorna 404 controlado e previsível", async (): Promise<void> => {
+  const response: Response = await handler(
+    new Request("http://localhost/rota-inexistente"),
+  );
+
+  assertEquals(response.status, 404);
+  assertStringIncludes(
+    response.headers.get("content-type") ?? "",
+    "application/json",
+  );
+
+  const body: unknown = await response.json();
+
+  assertEquals(body, { error: "not found" });
+});
+
+Deno.test("POST /rota-inexistente retorna 404 controlado e previsível", async (): Promise<void> => {
+  const response: Response = await handler(
+    new Request("http://localhost/rota-inexistente", {
+      method: "POST",
+    }),
+  );
+
+  assertEquals(response.status, 404);
+  assertStringIncludes(
+    response.headers.get("content-type") ?? "",
+    "application/json",
+  );
+
+  const body: unknown = await response.json();
+
+  assertEquals(body, { error: "not found" });
+});
