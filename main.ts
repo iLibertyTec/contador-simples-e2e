@@ -1,6 +1,4 @@
-import { formatCounterMessage, VisitCounter } from "./counter.ts";
-
-const counter = new VisitCounter();
+import { getVisitsState, recordVisit } from "./visits_state.ts";
 
 export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -14,21 +12,17 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (url.pathname === "/api/visits" && req.method === "GET") {
-    return Response.json(counter.state);
+    return Response.json(getVisitsState());
   }
 
   if (url.pathname === "/api/visits" && req.method === "POST") {
     const body = req.headers.get("content-type")?.includes("json")
-      ? await req.json().catch(() => ({}))
+      ? await req.json().catch((): {} => ({}))
       : {};
     const visitorId = typeof body.visitorId === "string"
       ? body.visitorId
       : undefined;
-    const state = counter.recordVisit(visitorId);
-    return Response.json({
-      ...state,
-      message: formatCounterMessage(state),
-    });
+    return Response.json(recordVisit(visitorId));
   }
 
   if (url.pathname === "/") {

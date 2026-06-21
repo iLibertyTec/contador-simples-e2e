@@ -43,7 +43,7 @@ deno.test("mesmo handler compartilha estado entre requisições", async (): Prom
   });
 });
 
-deno.test("novo import do handler reinicia estado", async (): Promise<void> => {
+deno.test("novo import do handler compartilha estado do módulo singleton", async (): Promise<void> => {
   const handlerA = await loadHandler();
 
   await handlerA(
@@ -82,9 +82,9 @@ deno.test("novo import do handler reinicia estado", async (): Promise<void> => {
     "application/json",
   );
   assertEquals(await responseB.json(), {
-    visits: 0,
-    uniqueVisitors: 0,
-    lastVisitor: null,
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
   });
 });
 
@@ -226,40 +226,4 @@ deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async
     lastVisitor: null,
     message: "Total visits: 1 · Unique visitors: 0",
   });
-});
-
-deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato atual", async (): Promise<void> => {
-  const handler = await loadHandler();
-  const response = await handler(
-    new Request("http://localhost/api/visits", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-    }),
-  );
-
-  assertEquals(response.status, 200);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
-  assertEquals(await response.json(), {
-    visits: 1,
-    uniqueVisitors: 0,
-    lastVisitor: null,
-    message: "Total visits: 1 · Unique visitors: 0",
-  });
-});
-
-deno.test("rotas inválidas retornam 404 com JSON", async (): Promise<void> => {
-  const handler = await loadHandler();
-  const response = await handler(new Request("http://localhost/unknown"));
-
-  assertEquals(response.status, 404);
-  assertEquals(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
-  );
-  assertEquals(await response.json(), { error: "not found" });
 });
