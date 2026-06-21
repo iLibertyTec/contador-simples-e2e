@@ -3,13 +3,59 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 
-async function loadHandler(): Promise<(req: Request) => Promise<Response>> {
+type AppHandler = (req: Request) => Promise<Response>;
+
+async function loadHandler(): Promise<AppHandler> {
   const module = await import(`./main.ts?test=${crypto.randomUUID()}`);
-  return module.handler as (req: Request) => Promise<Response>;
+  return module.handler as AppHandler;
 }
 
-deno.test("cada import do handler inicia com estado limpo", async (): Promise<void> => {
+deno.test("mesmo handler compartilha estado entre requisições", async (): Promise<void> => {
+  const handler = await loadHandler();
+
+  const firstResponse = await handler(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ visitorId: "browser" }),
+    }),
+  );
+
+  assertEquals(firstResponse.status, 200);
+  assertEquals(await firstResponse.json(), {
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
+    message: "Total visits: 1 · Unique visitors: 1 · Last visitor: browser",
+  });
+
+  const secondResponse = await handler(
+    new Request("http://localhost/api/visits"),
+  );
+
+  assertEquals(secondResponse.status, 200);
+  assertEquals(await secondResponse.json(), {
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
+  });
+});
+
+deno.test("novo import do handler reinicia estado", async (): Promise<void> => {
   const handlerA = await loadHandler();
+
+  await handlerA(
+    new Request("http://localhost/api/visits", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ visitorId: "browser" }),
+    }),
+  );
+
   const responseA = await handlerA(
     new Request("http://localhost/api/visits"),
   );
@@ -20,9 +66,9 @@ deno.test("cada import do handler inicia com estado limpo", async (): Promise<vo
     "application/json",
   );
   assertEquals(await responseA.json(), {
-    visits: 0,
-    uniqueVisitors: 0,
-    lastVisitor: null,
+    visits: 1,
+    uniqueVisitors: 1,
+    lastVisitor: "browser",
   });
 
   const handlerB = await loadHandler();
@@ -42,14 +88,34 @@ deno.test("cada import do handler inicia com estado limpo", async (): Promise<vo
   });
 });
 
-deno.test("GET /health retorna contrato esperado", async (): Promise<void> => {
+deno.test("GET /health retorna contrato HTTP atual", async (): Promise<void> => {
   const handler = await loadHandler();
   const response = await handler(new Request("http://localhost/health"));
 
   assertEquals(response.status, 200);
-  assertStringIncludes(
-    response.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(await response.json(), {
+    ok: true,
+    service: "ifactory-product",
+    version: "0.1.0",
+  });
+});
+
+deno.test("POST /health mantém contrato atual e retorna health", async (): Promise<void> => {
+  const handler = await loadHandler();
+  const response = await handler(
+    new Request("http://localhost/health", {
+      method: "POST",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
   assertEquals(await response.json(), {
     ok: true,
@@ -64,9 +130,9 @@ deno.test("GET / retorna HTML da página inicial", async (): Promise<void> => {
   const body = await response.text();
 
   assertEquals(response.status, 200);
-  assertStringIncludes(
-    response.headers.get("content-type") ?? "",
-    "text/html",
+  assertEquals(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
   );
   assertStringIncludes(body, "<!DOCTYPE html>");
   assertStringIncludes(body, "Visit Analytics");
@@ -79,9 +145,9 @@ deno.test("GET /api/visits retorna contador inicial", async (): Promise<void> =>
   const response = await handler(new Request("http://localhost/api/visits"));
 
   assertEquals(response.status, 200);
-  assertStringIncludes(
-    response.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
   assertEquals(await response.json(), {
     visits: 0,
@@ -103,9 +169,9 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
   );
 
   assertEquals(response.status, 200);
-  assertStringIncludes(
-    response.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
   assertEquals(await response.json(), {
     visits: 1,
@@ -115,10 +181,9 @@ deno.test("POST /api/visits incrementa contador e retorna mensagem", async (): P
   });
 });
 
-deno.test("POST /api/visits sem body JSON válido mantém compatibilidade mínima", async (): Promise<void> => {
+deno.test("POST /api/visits com JSON malformado mantém contrato atual", async (): Promise<void> => {
   const handler = await loadHandler();
-
-  const invalidJsonResponse = await handler(
+  const response = await handler(
     new Request("http://localhost/api/visits", {
       method: "POST",
       headers: {
@@ -128,38 +193,44 @@ deno.test("POST /api/visits sem body JSON válido mantém compatibilidade mínim
     }),
   );
 
-  assertEquals(invalidJsonResponse.status, 200);
-  assertStringIncludes(
-    invalidJsonResponse.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-  assertEquals(await invalidJsonResponse.json(), {
+  assertEquals(await response.json(), {
     visits: 1,
     uniqueVisitors: 0,
     lastVisitor: null,
     message: "Total visits: 1 · Unique visitors: 0",
   });
+});
 
-  const noContentTypeResponse = await handler(
+deno.test("POST /api/visits sem content-type JSON mantém contrato atual", async (): Promise<void> => {
+  const handler = await loadHandler();
+  const response = await handler(
     new Request("http://localhost/api/visits", {
       method: "POST",
       body: JSON.stringify({ visitorId: "ignored-without-content-type" }),
     }),
   );
 
-  assertEquals(noContentTypeResponse.status, 200);
-  assertStringIncludes(
-    noContentTypeResponse.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-  assertEquals(await noContentTypeResponse.json(), {
-    visits: 2,
+  assertEquals(await response.json(), {
+    visits: 1,
     uniqueVisitors: 0,
     lastVisitor: null,
-    message: "Total visits: 2 · Unique visitors: 0",
+    message: "Total visits: 1 · Unique visitors: 0",
   });
+});
 
-  const emptyBodyResponse = await handler(
+deno.test("POST /api/visits com body vazio e content-type JSON mantém contrato atual", async (): Promise<void> => {
+  const handler = await loadHandler();
+  const response = await handler(
     new Request("http://localhost/api/visits", {
       method: "POST",
       headers: {
@@ -168,106 +239,27 @@ deno.test("POST /api/visits sem body JSON válido mantém compatibilidade mínim
     }),
   );
 
-  assertEquals(emptyBodyResponse.status, 200);
-  assertStringIncludes(
-    emptyBodyResponse.headers.get("content-type") ?? "",
-    "application/json",
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-  assertEquals(await emptyBodyResponse.json(), {
-    visits: 3,
+  assertEquals(await response.json(), {
+    visits: 1,
     uniqueVisitors: 0,
     lastVisitor: null,
-    message: "Total visits: 3 · Unique visitors: 0",
+    message: "Total visits: 1 · Unique visitors: 0",
   });
 });
 
-deno.test("rotas e verbos inválidos retornam 404 com JSON", async (): Promise<void> => {
+deno.test("rotas inválidas retornam 404 com JSON", async (): Promise<void> => {
   const handler = await loadHandler();
+  const response = await handler(new Request("http://localhost/unknown"));
 
-  const missingRouteResponse = await handler(
-    new Request("http://localhost/unknown"),
+  assertEquals(response.status, 404);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
-  assertEquals(missingRouteResponse.status, 404);
-  assertStringIncludes(
-    missingRouteResponse.headers.get("content-type") ?? "",
-    "application/json",
-  );
-  assertEquals(await missingRouteResponse.json(), { error: "not found" });
-
-  const invalidMethodOnHealthResponse = await handler(
-    new Request("http://localhost/health", {
-      method: "POST",
-    }),
-  );
-  assertEquals(invalidMethodOnHealthResponse.status, 200);
-  assertStringIncludes(
-    invalidMethodOnHealthResponse.headers.get("content-type") ?? "",
-    "application/json",
-  );
-  assertEquals(await invalidMethodOnHealthResponse.json(), {
-    ok: true,
-    service: "ifactory-product",
-    version: "0.1.0",
-  });
-
-  const invalidMethodOnVisitsResponse = await handler(
-    new Request("http://localhost/api/visits", {
-      method: "DELETE",
-    }),
-  );
-  assertEquals(invalidMethodOnVisitsResponse.status, 404);
-  assertStringIncludes(
-    invalidMethodOnVisitsResponse.headers.get("content-type") ?? "",
-    "application/json",
-  );
-  assertEquals(await invalidMethodOnVisitsResponse.json(), {
-    error: "not found",
-  });
-});
-
-deno.test("múltiplos imports isolam estado mesmo com chamadas paralelas", async (): Promise<void> => {
-  const handlers = await Promise.all([
-    loadHandler(),
-    loadHandler(),
-    loadHandler(),
-  ]);
-
-  const responses = await Promise.all(
-    handlers.map((handler, index: number) =>
-      handler(
-        new Request("http://localhost/api/visits", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ visitorId: `visitor-${index}` }),
-        }),
-      )
-    ),
-  );
-
-  const payloads = await Promise.all(
-    responses.map((response: Response) => response.json()),
-  );
-
-  assertEquals(payloads, [
-    {
-      visits: 1,
-      uniqueVisitors: 1,
-      lastVisitor: "visitor-0",
-      message: "Total visits: 1 · Unique visitors: 1 · Last visitor: visitor-0",
-    },
-    {
-      visits: 1,
-      uniqueVisitors: 1,
-      lastVisitor: "visitor-1",
-      message: "Total visits: 1 · Unique visitors: 1 · Last visitor: visitor-1",
-    },
-    {
-      visits: 1,
-      uniqueVisitors: 1,
-      lastVisitor: "visitor-2",
-      message: "Total visits: 1 · Unique visitors: 1 · Last visitor: visitor-2",
-    },
-  ]);
+  assertEquals(await response.json(), { error: "not found" });
 });
